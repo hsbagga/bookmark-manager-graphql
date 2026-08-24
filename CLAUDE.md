@@ -11,7 +11,11 @@ Bun + TypeScript GraphQL API for managing bookmarks organized into folders.
   `Folder`/`Bookmark` types plus `Query`/`Mutation`. `src/resolvers/index.ts`
   is wired to Prisma (via `src/db/client.ts`) and implements real query/mutation
   logic — soft-delete filtering, nested field resolvers, and cursor pagination
-  on `bookmarks`.
+  on `bookmarks`. Mutations (`createFolder`, `createBookmark`, `updateBookmark`,
+  `deleteBookmark`, `moveBookmark`) validate input and throw `GraphQLError`
+  (from the `graphql` package) with `extensions.code` set to `BAD_USER_INPUT`
+  (blank strings, malformed URLs) or `NOT_FOUND` (missing/soft-deleted folder
+  or bookmark) — raw Prisma errors are never allowed to reach the client.
 
 ## Scripts
 
@@ -50,6 +54,8 @@ Bun + TypeScript GraphQL API for managing bookmarks organized into folders.
   `where: { isDeleted: false }` by default. Folder deletion (soft-delete
   cascade to its bookmarks via `$transaction`) is not yet implemented in
   resolvers — only individual bookmark soft-delete (`deleteBookmark`) exists.
+- `deleteBookmark` and `moveBookmark` treat a soft-deleted bookmark as
+  nonexistent: both throw `NOT_FOUND` rather than operating on it.
 
 ## Local Postgres
 
