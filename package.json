@@ -1,0 +1,13 @@
+{
+  "name": "bookmark-manager-graphql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "test": "bun test",
+    "gendb": "bunx prisma migrate dev",
+    "sanity": "tsc --noEmit"
+  }
+}
