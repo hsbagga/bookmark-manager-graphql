@@ -11,9 +11,12 @@
     "sanity": "tsc --noEmit"
   },
   "devDependencies": {
+    "bun-types": "^1.4.0",
     "prisma": "^7.9.1"
   },
   "dependencies": {
-    "@prisma/client": "^7.9.1"
+    "@prisma/client": "^7.9.1",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.22.0"
   }
 }
