@@ -7,7 +7,11 @@ Bun + TypeScript GraphQL API for managing bookmarks organized into folders.
 - Runtime: Bun
 - Language: TypeScript (strict mode, no `any` anywhere)
 - Database: PostgreSQL (via Docker Compose), Prisma ORM v7
-- API layer: GraphQL (not yet installed — schema/resolvers are scaffolded but empty)
+- API layer: GraphQL Yoga (schema-first). `src/schema/schema.graphql` defines
+  `Folder`/`Bookmark` types plus `Query`/`Mutation`. `src/resolvers/index.ts`
+  is wired to Prisma (via `src/db/client.ts`) and implements real query/mutation
+  logic — soft-delete filtering, nested field resolvers, and cursor pagination
+  on `bookmarks`.
 
 ## Scripts
 
@@ -15,15 +19,21 @@ Bun + TypeScript GraphQL API for managing bookmarks organized into folders.
 - `bun run build` — bundle to `dist/`
 - `bun run test` — run tests (`bun test`)
 - `bun run gendb` — run Prisma migrations (`bunx prisma migrate dev`)
+- `bun run seed` — run `prisma/seed.ts` to reset and repopulate sample data
+  (deletes all folders/bookmarks, then recreates 3 folders / 9 bookmarks). Run
+  manually — not wired as a `prisma.seed` config hook.
 - `bun run sanity` — typecheck only (`tsc --noEmit`)
 
 ## Project structure
 
 - `src/schema/` — GraphQL schema files
-- `src/resolvers/` — GraphQL resolvers
-- `src/db/` — Prisma client setup (`client.ts`)
+- `src/resolvers/` — GraphQL resolvers (Prisma-backed)
+- `src/db/` — Prisma client setup (`client.ts`), using the `@prisma/adapter-pg`
+  driver adapter (required by Prisma 7)
 - `prisma/schema.prisma` — Prisma data model
+- `prisma/seed.ts` — manual seed script (see Scripts)
 - `prisma.config.ts` — Prisma 7 config (reads `DATABASE_URL` from env)
+- `generated/prisma/` — generated Prisma Client output (not hand-written)
 - `docker-compose.yml` — local Postgres service
 
 ## Data model
@@ -36,8 +46,10 @@ Bun + TypeScript GraphQL API for managing bookmarks organized into folders.
   (`updateMany` on `Bookmark` where `folderId` matches, then update the
   `Folder`). This logic belongs in resolver/service code, not the schema,
   since Prisma's `onDelete` only fires on real SQL `DELETE` statements.
-- Any read query (list folders, list bookmarks) should filter
-  `where: { isDeleted: false }` by default once resolvers exist.
+- Any read query (list folders, list bookmarks) filters
+  `where: { isDeleted: false }` by default. Folder deletion (soft-delete
+  cascade to its bookmarks via `$transaction`) is not yet implemented in
+  resolvers — only individual bookmark soft-delete (`deleteBookmark`) exists.
 
 ## Local Postgres
 
@@ -57,5 +69,6 @@ bunx prisma migrate dev --name init
 ## Conventions
 
 - No `any` — TypeScript strict mode is enforced (`tsc --noEmit` via `sanity`).
-- Don't install `graphql`/`yoga` packages or add resolver logic until asked —
-  this repo has been deliberately scaffolded in stages.
+- Prisma 7 requires a driver adapter (no bare `datasourceUrl`/connection
+  string) — `src/db/client.ts` constructs `PrismaClient` with a `PrismaPg`
+  adapter from `@prisma/adapter-pg`.

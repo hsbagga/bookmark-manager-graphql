@@ -1,45 +1,5 @@
-interface Folder {
-  id: string;
-  name: string;
-  isDeleted: boolean;
-  createdAt: string;
-}
-
-interface Bookmark {
-  id: string;
-  title: string;
-  url: string;
-  tags: string[];
-  isDeleted: boolean;
-  folderId: string;
-  createdAt: string;
-}
-
-const dummyFolders: Folder[] = [
-  { id: "folder-1", name: "Reading List", isDeleted: false, createdAt: new Date().toISOString() },
-  { id: "folder-2", name: "Recipes", isDeleted: false, createdAt: new Date().toISOString() },
-];
-
-const dummyBookmarks: Bookmark[] = [
-  {
-    id: "bookmark-1",
-    title: "GraphQL Yoga Docs",
-    url: "https://the-guild.dev/graphql/yoga-server",
-    tags: ["graphql", "docs"],
-    isDeleted: false,
-    folderId: "folder-1",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "bookmark-2",
-    title: "Pasta Carbonara",
-    url: "https://example.com/carbonara",
-    tags: ["food", "italian"],
-    isDeleted: false,
-    folderId: "folder-2",
-    createdAt: new Date().toISOString(),
-  },
-];
+import { prisma } from "@/db/client";
+import type { Bookmark, Folder } from "../../generated/prisma/client";
 
 interface CreateFolderArgs {
   name: string;
@@ -79,53 +39,80 @@ interface BookmarksArgs {
   cursor?: string | null;
 }
 
+const DEFAULT_PAGE_SIZE = 10;
+
 export const resolvers = {
   Query: {
-    folders: (): Folder[] => dummyFolders,
-    folder: (_parent: unknown, args: FolderArgs): Folder | null =>
-      dummyFolders.find((folder) => folder.id === args.id) ?? null,
-    bookmarks: (_parent: unknown, _args: BookmarksArgs): Bookmark[] => dummyBookmarks,
+    folders: (): Promise<Folder[]> =>
+      prisma.folder.findMany({
+        where: { isDeleted: false },
+        orderBy: { createdAt: "desc" },
+      }),
+    folder: async (_parent: unknown, args: FolderArgs): Promise<Folder | null> =>
+      prisma.folder.findFirst({
+        where: { id: args.id, isDeleted: false },
+      }),
+    bookmarks: (_parent: unknown, args: BookmarksArgs): Promise<Bookmark[]> =>
+      prisma.bookmark.findMany({
+        where: {
+          isDeleted: false,
+          ...(args.folderId ? { folderId: args.folderId } : {}),
+          ...(args.search ? { title: { contains: args.search, mode: "insensitive" } } : {}),
+        },
+        orderBy: { id: "asc" },
+        take: args.take ?? DEFAULT_PAGE_SIZE,
+        ...(args.cursor
+          ? {
+              cursor: { id: args.cursor },
+              skip: 1,
+            }
+          : {}),
+      }),
   },
   Mutation: {
-    createFolder: (_parent: unknown, args: CreateFolderArgs): Folder => ({
-      id: "folder-stub",
-      name: args.name,
-      isDeleted: false,
-      createdAt: new Date().toISOString(),
-    }),
-    createBookmark: (_parent: unknown, args: CreateBookmarkArgs): Bookmark => ({
-      id: "bookmark-stub",
-      title: args.title,
-      url: args.url,
-      tags: args.tags ?? [],
-      isDeleted: false,
-      folderId: args.folderId,
-      createdAt: new Date().toISOString(),
-    }),
-    updateBookmark: (_parent: unknown, args: UpdateBookmarkArgs): Bookmark => {
-      const existing = dummyBookmarks.find((bookmark) => bookmark.id === args.id) ?? dummyBookmarks[0]!;
-      return {
-        ...existing,
-        title: args.title ?? existing.title,
-        url: args.url ?? existing.url,
-        tags: args.tags ?? existing.tags,
-      };
-    },
-    deleteBookmark: (_parent: unknown, args: DeleteBookmarkArgs): Bookmark => {
-      const existing = dummyBookmarks.find((bookmark) => bookmark.id === args.id) ?? dummyBookmarks[0]!;
-      return { ...existing, isDeleted: true };
-    },
-    moveBookmark: (_parent: unknown, args: MoveBookmarkArgs): Bookmark => {
-      const existing = dummyBookmarks.find((bookmark) => bookmark.id === args.id) ?? dummyBookmarks[0]!;
-      return { ...existing, folderId: args.folderId };
-    },
+    createFolder: (_parent: unknown, args: CreateFolderArgs): Promise<Folder> =>
+      prisma.folder.create({
+        data: { name: args.name },
+      }),
+    createBookmark: (_parent: unknown, args: CreateBookmarkArgs): Promise<Bookmark> =>
+      prisma.bookmark.create({
+        data: {
+          title: args.title,
+          url: args.url,
+          tags: args.tags ?? [],
+          folderId: args.folderId,
+        },
+      }),
+    updateBookmark: (_parent: unknown, args: UpdateBookmarkArgs): Promise<Bookmark> =>
+      prisma.bookmark.update({
+        where: { id: args.id },
+        data: {
+          ...(args.title !== undefined && args.title !== null ? { title: args.title } : {}),
+          ...(args.url !== undefined && args.url !== null ? { url: args.url } : {}),
+          ...(args.tags !== undefined && args.tags !== null ? { tags: args.tags } : {}),
+        },
+      }),
+    deleteBookmark: (_parent: unknown, args: DeleteBookmarkArgs): Promise<Bookmark> =>
+      prisma.bookmark.update({
+        where: { id: args.id },
+        data: { isDeleted: true },
+      }),
+    moveBookmark: (_parent: unknown, args: MoveBookmarkArgs): Promise<Bookmark> =>
+      prisma.bookmark.update({
+        where: { id: args.id },
+        data: { folderId: args.folderId },
+      }),
   },
   Folder: {
-    bookmarks: (parent: Folder): Bookmark[] =>
-      dummyBookmarks.filter((bookmark) => bookmark.folderId === parent.id),
+    bookmarks: (parent: Folder): Promise<Bookmark[]> =>
+      prisma.bookmark.findMany({
+        where: { folderId: parent.id, isDeleted: false },
+      }),
   },
   Bookmark: {
-    folder: (parent: Bookmark): Folder | null =>
-      dummyFolders.find((folder) => folder.id === parent.folderId) ?? null,
+    folder: (parent: Bookmark): Promise<Folder | null> =>
+      prisma.folder.findFirst({
+        where: { id: parent.folderId, isDeleted: false },
+      }),
   },
 };
