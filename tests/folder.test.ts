@@ -10,7 +10,7 @@ const activeFolder: Folder = {
 
 const findManyMock = mock(() => Promise.resolve([activeFolder]));
 
-mock.module("@/db/client", () => ({
+void mock.module("@/db/client", () => ({
   prisma: {
     folder: { findMany: findManyMock },
   },

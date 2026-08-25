@@ -2,13 +2,6 @@ import { describe, expect, it, mock } from "bun:test";
 import { GraphQLError } from "graphql";
 import type { Bookmark, Folder } from "../generated/prisma/client";
 
-const activeFolder: Folder = {
-  id: "folder-1",
-  name: "Reading List",
-  isDeleted: false,
-  createdAt: new Date("2026-01-01T00:00:00.000Z"),
-};
-
 const activeBookmark: Bookmark = {
   id: "bookmark-1",
   title: "Example",
@@ -24,7 +17,7 @@ const bookmarkFindFirstMock = mock(() => Promise.resolve<Bookmark | null>(active
 const bookmarkCreateMock = mock(() => Promise.resolve(activeBookmark));
 const bookmarkUpdateMock = mock(() => Promise.resolve(activeBookmark));
 
-mock.module("@/db/client", () => ({
+void mock.module("@/db/client", () => ({
   prisma: {
     folder: { findFirst: folderFindFirstMock },
     bookmark: {
@@ -36,6 +29,16 @@ mock.module("@/db/client", () => ({
 }));
 
 const { resolvers } = await import("@/resolvers/index");
+
+async function expectGraphQLError(call: Promise<unknown>, code: string): Promise<void> {
+  try {
+    await call;
+    throw new Error("expected call to reject, but it resolved");
+  } catch (error) {
+    expect(error).toBeInstanceOf(GraphQLError);
+    expect((error as GraphQLError).extensions).toMatchObject({ code });
+  }
+}
 
 describe("Mutation.createBookmark", () => {
   it("rejects an empty title without calling Prisma create", async () => {
@@ -49,10 +52,7 @@ describe("Mutation.createBookmark", () => {
       folderId: "folder-1",
     });
 
-    await expect(call).rejects.toThrow(GraphQLError);
-    await expect(call).rejects.toMatchObject({
-      extensions: { code: "BAD_USER_INPUT" },
-    });
+    await expectGraphQLError(call, "BAD_USER_INPUT");
     expect(bookmarkCreateMock).not.toHaveBeenCalled();
     expect(folderFindFirstMock).not.toHaveBeenCalled();
   });
@@ -68,10 +68,7 @@ describe("Mutation.createBookmark", () => {
       folderId: "folder-1",
     });
 
-    await expect(call).rejects.toThrow(GraphQLError);
-    await expect(call).rejects.toMatchObject({
-      extensions: { code: "BAD_USER_INPUT" },
-    });
+    await expectGraphQLError(call, "BAD_USER_INPUT");
     expect(bookmarkCreateMock).not.toHaveBeenCalled();
     expect(folderFindFirstMock).not.toHaveBeenCalled();
   });
@@ -90,10 +87,7 @@ describe("Mutation.moveBookmark", () => {
       folderId: "missing-folder",
     });
 
-    await expect(call).rejects.toThrow(GraphQLError);
-    await expect(call).rejects.toMatchObject({
-      extensions: { code: "NOT_FOUND" },
-    });
+    await expectGraphQLError(call, "NOT_FOUND");
     expect(bookmarkUpdateMock).not.toHaveBeenCalled();
   });
 });
