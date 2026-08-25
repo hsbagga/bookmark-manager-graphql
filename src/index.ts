@@ -16,7 +16,7 @@ const port = Number(process.env["PORT"] ?? 4000);
 
 Bun.serve({
   port,
-  fetch: yoga.fetch,
+  fetch: (request: Request) => yoga.fetch(request),
 });
 
-console.log(`GraphQL Yoga server running at http://localhost:${port}/graphql`);
+console.log(`GraphQL Yoga server running at http://localhost:${port.toString()}/graphql`);

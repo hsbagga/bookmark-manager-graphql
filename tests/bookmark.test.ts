@@ -13,7 +13,7 @@ const bookmarkFixture: Bookmark = {
 
 const findManyMock = mock(() => Promise.resolve([bookmarkFixture]));
 
-mock.module("@/db/client", () => ({
+void mock.module("@/db/client", () => ({
   prisma: {
     bookmark: { findMany: findManyMock },
   },

@@ -13,3 +13,21 @@ services:
 
 volumes:
   postgres_data:
+
+# Not part of the default `docker compose up -d` flow. Local dev is still
+# Postgres via compose + `bun run dev` on the host. To also run the API
+# itself in the same compose network (e.g. for a container-only setup or
+# CI), uncomment this service — it reaches Postgres at `postgres:5432`
+# rather than `localhost:5432`, so DATABASE_URL must be overridden
+# accordingly (e.g. via a separate .env.docker):
+#
+# services:
+#   api:
+#     build: .
+#     restart: unless-stopped
+#     environment:
+#       DATABASE_URL: postgresql://${POSTGRES_USER:-bookmark_user}:${POSTGRES_PASSWORD:-bookmark_pass}@postgres:5432/${POSTGRES_DB:-bookmark_db}?schema=public
+#     ports:
+#       - "4000:4000"
+#     depends_on:
+#       - postgres
