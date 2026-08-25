@@ -34,6 +34,8 @@ jobs:
 
       - run: bun install
 
+      - run: bunx prisma generate
+      
       - run: bun run lint
 
       - run: bun run typecheck
